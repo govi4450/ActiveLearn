@@ -1,0 +1,377 @@
+// import 'dotenv/config';
+// import express from 'express';
+// import cors from 'cors';
+// import path from 'path';
+// import fs from 'fs/promises';
+// import bcrypt from 'bcrypt';
+// import { GoogleGenerativeAI } from '@google/generative-ai';
+// import { exec } from 'child_process';
+// import util from 'util';
+// import { fileURLToPath } from 'url';
+// import serverless from 'serverless-http';
+
+// // Get __dirname equivalent for ES modules
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
+// const app = express();
+// const execPromise = util.promisify(exec);
+
+// // Configuration - use /tmp for Lambda writable storage
+// const DATA_DIR = '/tmp/data';
+// const SALT_ROUNDS = 10;
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// console.log("Gemini API Key loaded:", process.env.GEMINI_API_KEY ? "Yes" : "No");
+// const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
+
+// // Middleware
+// app.use(cors());
+// app.use(express.json());
+
+// // Ensure data directory exists
+// const ensureDataDir = async () => {
+//   try {
+//     await fs.mkdir(DATA_DIR, { recursive: true });
+//     console.log(`Data directory ready at ${DATA_DIR}`);
+//   } catch (err) {
+//     console.error('Error creating data directory:', err);
+//   }
+// };
+
+// // Initialize data directory
+// ensureDataDir();
+
+// // Helper functions
+// const loadCache = async (filename) => {
+//   try {
+//     const data = await fs.readFile(path.join(DATA_DIR, filename), 'utf8');
+//     return JSON.parse(data);
+//   } catch (err) {
+//     console.log(`Creating new cache file for ${filename}`);
+//     return {};
+//   }
+// };
+
+// const saveCache = async (filename, data) => {
+//   try {
+//     await fs.writeFile(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
+//   } catch (err) {
+//     console.error('Error saving cache:', err);
+//   }
+// };
+
+// // Transcript fetching with Python
+// async function getVideoTranscript(videoId) {
+//   try {
+//     if (!videoId || typeof videoId !== 'string') {
+//       throw new Error('Invalid video ID');
+//     }
+
+//     const pythonScriptPath = path.join(__dirname, 'youtube_transcript.py');
+    
+//     // Verify Python script exists
+//     try {
+//       await fs.access(pythonScriptPath);
+//     } catch {
+//       throw new Error(`Python script not found at ${pythonScriptPath}`);
+//     }
+
+//     console.log(`Fetching transcript for video: ${videoId}`);
+//     const { stdout, stderr } = await execPromise(
+//       `python3 "${pythonScriptPath}" "${videoId}"`,
+//       { timeout: 15000 } // 15 second timeout
+//     );
+
+//     if (stderr) console.error('Python stderr:', stderr);
+
+//     const result = JSON.parse(stdout);
+    
+//     if (!result.success) {
+//       throw new Error(result.error || 'Failed to fetch transcript');
+//     }
+
+//     if (!result.transcript || result.transcript.length === 0) {
+//       throw new Error('Received empty transcript');
+//     }
+
+//     return result.transcript.join(' ');
+//   } catch (err) {
+//     console.error('Transcript fetch error:', err);
+//     throw new Error(`Could not get transcript: ${err.message}`);
+//   }
+// }
+
+// // Routes
+// app.post('/api/register', async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+//     if (!username || !password) {
+//       return res.status(400).json({ error: "Username and password required" });
+//     }
+
+//     const users = await loadCache('users.json');
+//     if (users[username]) {
+//       return res.status(400).json({ error: "Username already exists" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+//     users[username] = {
+//       password: hashedPassword,
+//       created_at: new Date().toISOString()
+//     };
+
+//     await saveCache('users.json', users);
+//     res.status(201).json({ message: "User registered successfully" });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// app.post('/api/login', async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+//     if (!username || !password) {
+//       return res.status(400).json({ error: "Username and password required" });
+//     }
+
+//     const users = await loadCache('users.json');
+//     const user = users[username];
+    
+//     if (!user || !(await bcrypt.compare(password, user.password))) {
+//       return res.status(401).json({ error: "Invalid credentials" });
+//     }
+
+//     res.json({ message: "Login successful", username });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// app.get('/api/summarize', async (req, res) => {
+//   try {
+//     const { video_id } = req.query;
+//     if (!video_id) {
+//       return res.status(400).json({ error: "Video ID is required" });
+//     }
+
+//     const transcriptText = await getVideoTranscript(video_id);
+//     if (!transcriptText) {
+//       return res.status(404).json({ error: "No transcript available for this video" });
+//     }
+
+//     const summary = await summarizeText(transcriptText);
+//     res.json({
+//       success: true,
+//       summary,
+//       transcript_sample: transcriptText.substring(0, 500)
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       error: err.message,
+//       details: "Failed to summarize video"
+//     });
+//   }
+// });
+
+// app.get('/api/generate_questions', async (req, res) => {
+//   try {
+//     const { video_id, username } = req.query;
+//     if (!video_id) {
+//       return res.status(400).json({ error: "Video ID is required" });
+//     }
+
+//     const transcriptText = await getVideoTranscript(video_id);
+//     if (!transcriptText) {
+//       return res.status(404).json({ error: "No transcript available for this video" });
+//     }
+
+//     const questions = await generateQuestions(transcriptText);
+
+//     console.log("Generated question IDs:", questions.map(q => q.id));
+    
+//     if (username) {
+//       const progress = await loadCache('progress.json');
+//       progress[username] = progress[username] || {};
+//       progress[username][video_id] = { 
+//         questions_generated: true,
+//         timestamp: new Date().toISOString()
+//       };
+//       await saveCache('progress.json', progress);
+//     }
+
+//     res.json({ success: true, questions });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       error: err.message,
+//       details: "Failed to generate questions"
+//     });
+//   }
+// });
+
+// app.post('/api/save_response', async (req, res) => {
+//   try {
+//     const { username, video_id, question_id, user_answer, is_correct } = req.body;
+//     if (!username || !video_id || !question_id || typeof user_answer === 'undefined') {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
+//     const responses = await loadCache('responses.json');
+//     responses[username] = responses[username] || {};
+//     responses[username][video_id] = responses[username][video_id] || {};
+//     responses[username][video_id][question_id] = {
+//       user_answer,
+//       is_correct,
+//       timestamp: new Date().toISOString()
+//     };
+//     await saveCache('responses.json', responses);
+//     res.json({ success: true });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// // AI Functions
+// async function summarizeText(text) {
+//   const prompt = `
+// Summarize this YouTube video transcript in exactly 2 bullet points:
+// ${text.substring(0, 10000)}
+
+// Guidelines:
+// - Start each point with '*'
+// - Keep each point concise (1-2 sentences)
+// - Maintain original meaning
+// - Use clear, simple language
+//   `;
+
+//   try {
+//     const result = await model.generateContent({
+//       contents: [{ parts: [{ text: prompt }] }]
+//     });
+//     const response = await result.response;
+//     const responseText = response.text();
+
+//     return responseText
+//       .split('\n')
+//       .filter(line => line.trim().startsWith('*'))
+//       .map(line => line.trim().substring(1).trim());
+//   } catch (err) {
+//     console.error('Summarization error:', err);
+//     return ["Could not generate summary"];
+//   }
+// }
+
+// async function generateQuestions(text) {
+//   const prompt = `
+// Generate 5-10 diverse, content-based, and technical questions about this content:
+// ${text.substring(0, 3000)}
+
+// Guidelines:
+// - Do NOT include any questions about the speaker, their intentions, or their opinions.
+// - Only ask questions about the technical content, facts, concepts, or processes described.
+// - Avoid questions that reference "the speaker", "the listener", or any personal perspective.
+// -Use these formats:
+//  1. Multiple choice (format: 1. [Difficulty] Question)
+//  2. True/False (format: TF1. Statement)
+//  3. Short answer (format: SA1. Question)
+
+// -For each question provide:
+//  - Correct answer (Answer:)
+//  - Explanation (Explanation:)
+//  - Difficulty (Easy/Medium/Hard)
+//   `;
+
+//   try {
+//     const result = await model.generateContent({
+//       contents: [{ role: "user", parts: [{ text: prompt }] }],
+//       generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
+//     });
+//     const response = await result.response;
+//     const responseText = response.text();
+//     console.log("Gemini raw response for questions:\n", responseText);
+//     return parseGeminiResponse(responseText);
+//   } catch (err) {
+//     console.error('Question generation error:', err);
+//     return [{ error: "Failed to generate questions" }];
+//   }
+// }
+
+// function parseGeminiResponse(responseText) {
+//   const questions = [];
+//   let currentQuestion = null;
+//   const lines = responseText.split('\n');
+
+//   lines.forEach(line => {
+//     const trimmed = line.trim();
+
+//     // Question detection (MCQ, TF, SA)
+//     const questionMatch = trimmed.match(/^(\d+|TF\d+|SA\d+)\.\s*(.*)/);
+//     if (questionMatch) {
+//       if (currentQuestion) questions.push(currentQuestion);
+
+//       // Remove [Difficulty] from question text if present
+//       let questionText = questionMatch[2].replace(/^\[[^\]]+\]\s*/, '');
+
+//       currentQuestion = {
+//         id: questionMatch[1],
+//         question: questionText,
+//         type: questionMatch[1].startsWith('TF') ? 'true_false' :
+//               questionMatch[1].startsWith('SA') ? 'short_answer' : 'mcq',
+//         options: [],
+//         answer: '',
+//         explanation: '',
+//         difficulty: 'Medium'
+//       };
+//       return;
+//     }
+
+//     if (!currentQuestion) return;
+
+//     // Option detection (a) ... or (a) ... or a) ...
+//     const optionMatch = trimmed.match(/^\(?([a-d])\)?\.\s*(.*)/i) || trimmed.match(/^\(?([a-d])\)?\)\s*(.*)/i);
+//     if (optionMatch && currentQuestion.type === 'mcq') {
+//       currentQuestion.options.push(optionMatch[2]);
+//       return;
+//     }
+
+//     // Answer detection
+//     const answerMatch = trimmed.match(/^\*?Answer:\*?\s*(.*)/i);
+//     if (answerMatch) {
+//       currentQuestion.answer = answerMatch[1].trim();
+//       return;
+//     }
+
+//     // Explanation detection
+//     const explanationMatch = trimmed.match(/^\*?Explanation:\*?\s*(.*)/i);
+//     if (explanationMatch) {
+//       currentQuestion.explanation = explanationMatch[1].trim();
+//       return;
+//     }
+
+//     // Difficulty detection
+//     const difficultyMatch = trimmed.match(/^\*?Difficulty:\*?\s*(Easy|Medium|Hard)/i);
+//     if (difficultyMatch) {
+//       currentQuestion.difficulty = difficultyMatch[1];
+//       return;
+//     }
+//   });
+
+//   if (currentQuestion) questions.push(currentQuestion);
+
+//   // Sort: Easy → Medium → Hard → True/False → Short Answer
+//   const difficultyOrder = { Easy: 1, Medium: 2, Hard: 3 };
+//   const typeOrder = { mcq: 1, true_false: 2, short_answer: 3 };
+
+//   questions.sort((a, b) => {
+//     // Sort by type first, then by difficulty
+//     if (typeOrder[a.type] !== typeOrder[b.type]) {
+//       return typeOrder[a.type] - typeOrder[b.type];
+//     }
+//     return (difficultyOrder[a.difficulty] || 4) - (difficultyOrder[b.difficulty] || 4);
+//   });
+
+//   return questions.slice(0, 10);
+// }
+
+// // Export the app wrapped with serverless-http for Lambda
+// export const handler = serverless(app);
