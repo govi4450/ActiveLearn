@@ -1,141 +1,72 @@
 function parseGeminiResponse(responseText) {
-  console.log("🔍 Raw Gemini Response:\n", responseText);
-  
-  const questions = [];
-  let currentQuestion = null;
-  const lines = responseText.split('\n');
-  
-  const patterns = {
-    question: /^(\d+|TF\d+|SA\d+)\.\s*(.*)/,
-    option: /^([a-d])[\.\)]\s*(.*)/i,
-    answer: /^(?:Answer|Correct Answer|Correct):\s*(.*)/i,
-    explanation: /^(?:Explanation|Reason|Why):\s*(.*)/i,
-    difficulty: /^(?:Difficulty|Level):\s*(Easy|Medium|Hard)/i
-  };
+    const questions = [];
+    const questionBlocks = responseText.split('**Question:**').slice(1);
 
-  lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+    for (const block of questionBlocks) {
+        const lines = block.trim().split('\n');
+        const question = {};
 
-    // Question detection
-    const questionMatch = trimmed.match(patterns.question);
-    if (questionMatch) {
-      if (currentQuestion) {
-        // Validate current question before pushing
-        if (currentQuestion.question && currentQuestion.correctAnswer) {
-          questions.push(currentQuestion);
+        question.question = lines[0].trim();
+
+        for (const line of lines.slice(1)) {
+            const parts = line.split('**');
+            if (parts.length < 3) continue;
+
+            const key = parts[1].replace(':', '').trim().toLowerCase();
+            const value = parts[2].trim().replace(/^:/, '').trim();
+
+            switch (key) {
+                case 'type':
+                    question.type = value;
+                    break;
+                case 'difficulty':
+                    question.difficulty = value;
+                    break;
+                case 'options':
+                    try {
+                        // Handle potential markdown in the options array string
+                        let cleanedValue = value.replace(/`+/g, '').trim();
+                        
+                        // If it's already a JSON array, parse it
+                        if (cleanedValue.startsWith('[')) {
+                            question.options = JSON.parse(cleanedValue);
+                        } 
+                        // If it's a comma-separated list, split it
+                        else if (cleanedValue.includes(',')) {
+                            question.options = cleanedValue.split(',').map(opt => opt.trim());
+                        }
+                        // If it's newline-separated, split by newlines
+                        else if (cleanedValue.includes('\n')) {
+                            question.options = cleanedValue.split('\n')
+                                .map(opt => opt.trim())
+                                .filter(opt => opt.length > 0);
+                        }
+                        else {
+                            question.options = [];
+                        }
+                        
+                        console.log(`✓ Parsed ${question.options.length} options for question`);
+                    } catch (e) {
+                        console.error("❌ Failed to parse options:", value, e);
+                        question.options = [];
+                    }
+                    break;
+                case 'answer':
+                    question.answer = value;
+                    break;
+                case 'explanation':
+                    question.explanation = value;
+                    break;
+            }
         }
-      }
-
-      let questionText = questionMatch[2].replace(/^\[[^\]]+\]\s*/, '');
-      
-      // Determine question type correctly
-      let questionType = 'mcq'; // default
-      if (questionMatch[1].startsWith('TF')) {
-        questionType = 'true_false';
-      } else if (questionMatch[1].startsWith('SA')) {
-        questionType = 'short_answer';
-      }
-      
-      currentQuestion = {
-        id: questionMatch[1],
-        question: questionText,
-        type: questionType, // This was the main issue - all were being set to 'mcq'
-        options: [],
-        correctAnswer: '',
-        explanation: '',
-        difficulty: 'Medium'
-      };
-      // console.log(`Found ${questionType} question: ${questionText.substring(0, 50)}...`);
-      return;
-    }
-
-    if (!currentQuestion) return;
-
-    // Option detection only for MCQ questions
-    const optionMatch = trimmed.match(patterns.option);
-    if (optionMatch && currentQuestion.type === 'mcq') {
-      currentQuestion.options.push(optionMatch[2].trim());
-      // console.log(` Option ${optionMatch[1]}: ${optionMatch[2].substring(0, 30)}...`);
-      return;
-    }
-
-    // Answer detection
-    const answerMatch = trimmed.match(patterns.answer);
-    if (answerMatch) {
-      currentQuestion.correctAnswer = answerMatch[1].trim();
-      // console.log(` Answer: ${currentQuestion.correctAnswer}`);
-      return;
-    }
-
-    // Explanation detection
-    const explanationMatch = trimmed.match(patterns.explanation);
-    if (explanationMatch) {
-      currentQuestion.explanation = explanationMatch[1].trim();
-      // console.log(` Explanation: ${currentQuestion.explanation.substring(0, 50)}...`);
-      return;
-    }
-
-    // Difficulty detection
-    const difficultyMatch = trimmed.match(patterns.difficulty);
-    if (difficultyMatch) {
-      currentQuestion.difficulty = difficultyMatch[1];
-      // console.log(`Difficulty: ${currentQuestion.difficulty}`);
-      return;
-    }
-  });
-
-  // Push the last question
-  if (currentQuestion && currentQuestion.question && currentQuestion.correctAnswer) {
-    questions.push(currentQuestion);
-  }
-
-  // console.log(` Parsed ${questions.length} questions`);
-  
-  // Validate and clean questions
-  const validQuestions = questions.filter(q => 
-    q.question && q.correctAnswer && q.type
-  ).map((q, index) => {
-    // Clean up the question type and ensure proper formatting
-    const cleanedQuestion = {
-      id: q.id || `Q${index + 1}`,
-      question: q.question.trim(),
-      type: q.type,
-      correctAnswer: q.correctAnswer.trim(),
-      explanation: q.explanation ? q.explanation.trim() : "No explanation provided.",
-      difficulty: q.difficulty || 'Medium'
-    };
-    
-    // Only include options for MCQ questions
-    if (q.type === 'mcq' && q.options && q.options.length > 0) {
-      cleanedQuestion.options = q.options.map(opt => opt.trim());
-    } else {
-      cleanedQuestion.options = [];
+        
+        // Log parsed question summary
+        console.log(`📋 Parsed question: type=${question.type}, options=${question.options?.length || 0}, hasAnswer=${!!question.answer}`);
+        questions.push(question);
     }
     
-    // For true/false questions, add standard options
-    if (q.type === 'true_false') {
-      cleanedQuestion.options = ['True', 'False'];
-    }
-    
-    return cleanedQuestion;
-  });
-
-  // console.log(` Valid questions: ${validQuestions.length}`);
-  
-  // Debug: Log each question details with correct type
-  validQuestions.forEach((q, i) => {
-    // console.log(`\n Question ${i + 1} (${q.type}):`);
-    // console.log(`   Question: ${q.question.substring(0, 60)}...`);
-    // console.log(`   Answer: ${q.correctAnswer}`);
-    // console.log(`   Explanation: ${q.explanation.substring(0, 50)}...`);
-    // console.log(`   Difficulty: ${q.difficulty}`);
-    if (q.type === 'mcq') {
-      console.log(`   Options: ${q.options.length}`);
-    }
-  });
-
-  return validQuestions.slice(0, 10);
+    console.log(`✅ Total questions parsed: ${questions.length}`);
+    return questions;
 }
 
 module.exports = { parseGeminiResponse };

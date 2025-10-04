@@ -6,11 +6,24 @@ const path = require('path');
 const execPromise = util.promisify(exec);
 
 class TranscriptService {
+  static lastRequestTime = 0;
+  static MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+
   static async getVideoTranscript(videoId) {
     try {
       if (!videoId || typeof videoId !== 'string') {
         throw new Error('Invalid video ID');
       }
+
+      // Rate limiting: wait if last request was too recent
+      const now = Date.now();
+      const timeSinceLastRequest = now - this.lastRequestTime;
+      if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+        const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        console.log(`⏳ Rate limiting: waiting ${waitTime}ms before fetching transcript...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      this.lastRequestTime = Date.now();
 
       const pythonScriptPath = path.join(__dirname, '../scripts/youtube_transcript.py');
       const venvPythonPath = path.join(__dirname, '../../venv/bin/python3'); // Virtual environment Python

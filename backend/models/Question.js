@@ -5,6 +5,11 @@ const questionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  mode: {
+    type: String,
+    enum: ['quiz', 'practice'],
+    default: 'quiz'
+  },
   question: {
     type: String,
     required: true

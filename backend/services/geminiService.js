@@ -28,25 +28,67 @@ Guidelines:
     }
   }
 
-  static async generateQuestions(transcript) {
-    const prompt = `Generate 5-10 diverse, content-based, and technical questions about this content:
-${transcript.substring(0, 3000)}
+  static async generateQuestions(transcript, summary) {
+    const prompt = `You are a professional educational question generator. Create 10 high-quality questions based STRICTLY on the content provided below.
 
-Guidelines:
-- Do NOT include any questions about the speaker, their intentions, or their opinions.
-- Only ask questions about the technical content, facts, concepts, or processes described.
-- Avoid questions that reference "the speaker", "the listener", or any personal perspective.
-- Use these formats:
-  1. Multiple choice (format: 1. [Difficulty] Question)
-  2. True/False (format: TF1. Statement)
-  3. Short answer (format: SA1. Question)
+**Content Summary:**
+${summary}
 
-- For each question provide:
-  - Correct answer (Answer:)
-  - Explanation (Explanation:)
-  - Difficulty (Easy/Medium/Hard)`;
+**Content Transcript:**
+${transcript.substring(0, 7500)}
+
+**CRITICAL RULES:**
+1.  **SOURCE RESTRICTION:** Use ONLY the information explicitly stated in the Summary and Transcript above. Do NOT add external knowledge.
+2.  **PROFESSIONAL TONE:** Write questions as if for an educational assessment. Focus on concepts, principles, and facts discussed.
+3.  **NO META-REFERENCES:** 
+    - ❌ NEVER use phrases like "in the video", "in the transcript", "the speaker mentions", "according to the content"
+    - ❌ NEVER ask about the author, speaker, or video itself
+    - ✅ Ask direct concept-based questions as if testing understanding of the subject matter
+4.  **CONCEPT-FOCUSED:** Ask about the actual concepts, definitions, relationships, and principles explained in the content.
+5.  **VERIFICATION:** Each question must be answerable by directly referencing specific information from the text above.
+
+**QUESTION DISTRIBUTION:**
+- Exactly 4 Multiple Choice questions
+- Exactly 2 Fill-in-the-Blank questions  
+- Exactly 2 True/False questions
+- Exactly 2 Short Answer questions
+
+**EXAMPLES OF GOOD vs BAD QUESTIONS:**
+
+❌ BAD: "According to the video, what is Newton's second law?"
+✅ GOOD: "What is the relationship between force, mass, and acceleration?"
+
+❌ BAD: "The speaker explains that energy can be _______"
+✅ GOOD: "Energy can be _______ but not created or destroyed."
+
+❌ BAD: "In the transcript, which formula is mentioned for calculating work?"
+✅ GOOD: "Which formula is used to calculate work done by a force?"
+
+**OUTPUT FORMAT:**
+For each question, provide EXACTLY this format:
+
+**Question:** [Professional, concept-focused question with no meta-references]
+**Type:** [multiple-choice | fill-in-the-blank | true/false | short-answer]
+**Difficulty:** [Easy | Medium | Hard]
+**Options:** [For multiple-choice ONLY: provide 4 options as JSON array like ["Option 1 text here", "Option 2 text here", "Option 3 text here", "Option 4 text here"]. For other types, write "N/A"]
+**Answer:** [The correct answer from the content above]
+**Explanation:** [Explain the concept without saying "the video states" or "according to the transcript" - just explain the concept directly]
+
+**EXAMPLE MULTIPLE-CHOICE QUESTION:**
+**Question:** What is the relationship between force, mass, and acceleration?
+**Type:** multiple-choice
+**Difficulty:** Medium
+**Options:** ["Force equals mass times acceleration", "Force equals mass divided by acceleration", "Force equals acceleration divided by mass", "Force is independent of mass and acceleration"]
+**Answer:** Force equals mass times acceleration
+**Explanation:** Newton's second law states that force is directly proportional to both mass and acceleration, expressed as F = ma.
+
+Generate all 10 questions now:`;
 
     try {
+      console.log("---PROMPT START---");
+      console.log(prompt);
+      console.log("---PROMPT END---");
+
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
