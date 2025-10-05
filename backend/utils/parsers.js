@@ -47,7 +47,7 @@ function parseGeminiResponse(responseText) {
                         
                         console.log(`✓ Parsed ${question.options.length} options for question`);
                     } catch (e) {
-                        console.error("❌ Failed to parse options:", value, e);
+                        console.error("Failed to parse options:", value, e);
                         question.options = [];
                     }
                     break;
@@ -61,11 +61,11 @@ function parseGeminiResponse(responseText) {
         }
         
         // Log parsed question summary
-        console.log(`📋 Parsed question: type=${question.type}, options=${question.options?.length || 0}, hasAnswer=${!!question.answer}`);
+        console.log(` Parsed question: type=${question.type}, options=${question.options?.length || 0}, hasAnswer=${!!question.answer}`);
         questions.push(question);
     }
     
-    console.log(`✅ Total questions parsed: ${questions.length}`);
+    console.log(`Total questions parsed: ${questions.length}`);
     return questions;
 }
 
