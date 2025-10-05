@@ -627,6 +627,7 @@ h1 {
 .dark-mode .question-option {
     background: #2d3436;
     border-color: #636e72;
+    color: #ffffff;
 }
 
 .question-option:hover {
@@ -635,6 +636,7 @@ h1 {
 
 .dark-mode .question-option:hover {
     background: #3d4548;
+    color: #ffffff;
 }
 
 .question-option.selected {
