@@ -23,7 +23,21 @@ const summaryController = {
       }
 
       // Get transcript and generate summary
-      const transcriptText = await TranscriptService.getVideoTranscript(video_id);
+      let transcriptText;
+      try {
+        transcriptText = await TranscriptService.getVideoTranscript(video_id);
+      } catch (transcriptError) {
+        // Check if it's a rate limit error
+        if (transcriptError.message.includes('too many requests') || 
+            transcriptError.message.includes('blocked')) {
+          return res.status(429).json({ 
+            error: "YouTube rate limit reached. Please wait a few minutes and try again.",
+            details: "Too many transcript requests in a short time"
+          });
+        }
+        throw transcriptError;
+      }
+      
       if (!transcriptText) {
         return res.status(404).json({ error: "No transcript available for this video" });
       }

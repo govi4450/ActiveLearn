@@ -2,37 +2,67 @@ const Question = require('../models/Question');
 const Progress = require('../models/Progress');
 const User = require('../models/User');
 const TranscriptService = require('../services/transcriptService');
+const Video = require('../models/Video');
 const GeminiService = require('../services/geminiService');
 const { parseGeminiResponse } = require('../utils/parsers');
 
 const questionController = {
   async generateQuestions(req, res) {
     try {
-      const { video_id, username } = req.query;
+      const { video_id, username, force, mode } = req.query;
+      const questionMode = mode || 'quiz'; // Default to 'quiz' if not specified
       
       if (!video_id) {
         return res.status(400).json({ error: "Video ID is required" });
       }
 
-      // Check if questions already exist
-      const existingQuestions = await Question.find({ videoId: video_id });
-      if (existingQuestions.length > 0) {
-        return res.json({
-          success: true,
-          questions: existingQuestions,
-          cached: true
-        });
+      // console.log(` Question generation request for video: ${video_id}, mode: ${questionMode}, force: ${force}, user: ${username || 'anonymous'}`);
+
+      if (force === 'true') {
+        // console.log(` Force option detected. Deleting existing ${questionMode} questions for video ${video_id}...`);
+        await Question.deleteMany({ videoId: video_id, mode: questionMode });
+        // console.log(' Existing questions deleted.');
+      } else {
+        // Check if questions already exist for this mode
+        const existingQuestions = await Question.find({ videoId: video_id, mode: questionMode });
+        if (existingQuestions.length > 0) {
+          // console.log(` Returning ${existingQuestions.length} cached ${questionMode} questions for video ${video_id}`);
+          return res.json({
+            success: true,
+            questions: existingQuestions,
+            cached: true
+          });
+        }
       }
 
-      // Get transcript and generate questions
+      // Get transcript
       const transcriptText = await TranscriptService.getVideoTranscript(video_id);
       if (!transcriptText) {
         return res.status(404).json({ error: "No transcript available for this video" });
       }
 
-      console.log("🤖 Generating questions with Gemini...");
-      const geminiResponse = await GeminiService.generateQuestions(transcriptText);
-      console.log("📋 Parsing Gemini response...");
+      // Get or generate summary
+      let video = await Video.findOne({ videoId: video_id });
+      let summaryText;
+      if (video && video.summary && video.summary.length > 0) {
+        summaryText = video.summary.map(s => s.text).join('\n');
+      } else {
+        // console.log(" Generating summary as it was not found...");
+        const summaryPoints = await GeminiService.generateSummary(transcriptText);
+        summaryText = summaryPoints.join('\n');
+        
+        // Save the newly generated summary
+        if (!video) {
+          video = new Video({ videoId: video_id, transcript: transcriptText });
+        }
+        video.summary = summaryPoints.map(point => ({ text: point }));
+        await video.save();
+        // console.log(" Summary saved.");
+      }
+
+      // console.log(" Generating questions with Gemini...");
+      const geminiResponse = await GeminiService.generateQuestions(transcriptText, summaryText);
+      console.log("RAW GEMINI RESPONSE:", geminiResponse);
       const questionsData = parseGeminiResponse(geminiResponse);
 
       if (!questionsData || questionsData.length === 0) {
@@ -40,18 +70,48 @@ const questionController = {
       }
 
       // Save questions to database
-      const questions = await Question.insertMany(
-        questionsData.map((q, index) => ({
+      // Normalize question fields from LLM output to match our schema
+      const normalizeType = (t) => {
+        if (!t) return 'short_answer';
+        const v = t.toString().toLowerCase().trim();
+        if (v.includes('multiple')) return 'mcq';
+        if (v.includes('true') || v.includes('false')) return 'true_false';
+        if (v.includes('fill')) return 'short_answer'; // we do not have a separate fill type in schema
+        if (v.includes('short')) return 'short_answer';
+        return 'short_answer';
+      };
+
+      const normalizeDifficulty = (d) => {
+        if (!d) return 'Medium';
+        const v = d.toString().toLowerCase();
+        if (v.startsWith('e')) return 'Easy';
+        if (v.startsWith('h')) return 'Hard';
+        return 'Medium';
+      };
+
+      const questionsToSave = questionsData.map((q, index) => {
+        const normalized = {
           videoId: video_id,
+          mode: questionMode,
           question: q.question,
-          type: q.type,
-          options: q.options || [],
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
-          difficulty: q.difficulty || 'Medium',
+          type: normalizeType(q.type),
+          options: Array.isArray(q.options) ? q.options : [],
+          correctAnswer: q.correctAnswer || q.answer || '',
+          explanation: q.explanation || '',
+          difficulty: normalizeDifficulty(q.difficulty),
           order: index + 1
-        }))
-      );
+        };
+        
+        // Log if MCQ has no options
+        if (normalized.type === 'mcq' && normalized.options.length === 0) {
+          console.warn(` MCQ question has no options: "${q.question.substring(0, 50)}..."`);
+          console.warn(`   Raw options from LLM:`, q.options);
+        }
+        
+        return normalized;
+      });
+      
+      const questions = await Question.insertMany(questionsToSave);
 
       // Create progress tracking if user is logged in
       if (username) {
@@ -72,7 +132,7 @@ const questionController = {
         }
       }
 
-      console.log(`✅ Generated ${questions.length} questions for video ${video_id}`);
+      // console.log(` Generated ${questions.length} ${questionMode} questions for video ${video_id}`);
       
       res.json({
         success: true,
@@ -81,7 +141,7 @@ const questionController = {
         count: questions.length
       });
     } catch (error) {
-      console.error('❌ Question generation error:', error);
+      console.error(' Question generation error:', error);
       res.status(500).json({
         success: false,
         error: error.message,
@@ -168,7 +228,7 @@ const questionController = {
       progress.lastAccessed = new Date();
       await progress.save();
 
-      console.log(`✅ Saved response for user ${username}, question ${question_id}, correct: ${isCorrect}`);
+      // console.log(` Saved response for user ${username}, question ${question_id}, correct: ${isCorrect}`);
 
       res.json({ 
         success: true,
@@ -178,7 +238,7 @@ const questionController = {
         score: progress.score
       });
     } catch (error) {
-      console.error('❌ Save response error:', error);
+      console.error(' Save response error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to save response" 
@@ -231,7 +291,7 @@ const questionController = {
         }
       });
     } catch (error) {
-      console.error('❌ Get progress error:', error);
+      console.error(' Get progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get progress" 
@@ -271,7 +331,7 @@ const questionController = {
         lastAccessed: progress.lastAccessed
       });
     } catch (error) {
-      console.error('❌ Get quiz score error:', error);
+      console.error(' Get quiz score error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get quiz score" 
@@ -294,14 +354,14 @@ const questionController = {
 
       await Progress.findOneAndDelete({ userId: user._id, videoId: video_id });
 
-      console.log(`🔄 Reset progress for user ${username}, video ${video_id}`);
+      console.log(`Reset progress for user ${username}, video ${video_id}`);
 
       res.json({
         success: true,
         message: "Progress reset successfully"
       });
     } catch (error) {
-      console.error('❌ Reset progress error:', error);
+      console.error(' Reset progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to reset progress" 
