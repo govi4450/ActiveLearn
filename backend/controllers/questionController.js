@@ -16,17 +16,17 @@ const questionController = {
         return res.status(400).json({ error: "Video ID is required" });
       }
 
-      console.log(`📝 Question generation request for video: ${video_id}, mode: ${questionMode}, force: ${force}, user: ${username || 'anonymous'}`);
+      // console.log(` Question generation request for video: ${video_id}, mode: ${questionMode}, force: ${force}, user: ${username || 'anonymous'}`);
 
       if (force === 'true') {
-        console.log(`🔥 Force option detected. Deleting existing ${questionMode} questions for video ${video_id}...`);
+        // console.log(` Force option detected. Deleting existing ${questionMode} questions for video ${video_id}...`);
         await Question.deleteMany({ videoId: video_id, mode: questionMode });
-        console.log('✅ Existing questions deleted.');
+        // console.log(' Existing questions deleted.');
       } else {
         // Check if questions already exist for this mode
         const existingQuestions = await Question.find({ videoId: video_id, mode: questionMode });
         if (existingQuestions.length > 0) {
-          console.log(`♻️  Returning ${existingQuestions.length} cached ${questionMode} questions for video ${video_id}`);
+          // console.log(` Returning ${existingQuestions.length} cached ${questionMode} questions for video ${video_id}`);
           return res.json({
             success: true,
             questions: existingQuestions,
@@ -47,7 +47,7 @@ const questionController = {
       if (video && video.summary && video.summary.length > 0) {
         summaryText = video.summary.map(s => s.text).join('\n');
       } else {
-        console.log("📝 Generating summary as it was not found...");
+        // console.log(" Generating summary as it was not found...");
         const summaryPoints = await GeminiService.generateSummary(transcriptText);
         summaryText = summaryPoints.join('\n');
         
@@ -57,10 +57,10 @@ const questionController = {
         }
         video.summary = summaryPoints.map(point => ({ text: point }));
         await video.save();
-        console.log("✅ Summary saved.");
+        // console.log(" Summary saved.");
       }
 
-      console.log("🤖 Generating questions with Gemini...");
+      // console.log(" Generating questions with Gemini...");
       const geminiResponse = await GeminiService.generateQuestions(transcriptText, summaryText);
       console.log("RAW GEMINI RESPONSE:", geminiResponse);
       const questionsData = parseGeminiResponse(geminiResponse);
@@ -104,7 +104,7 @@ const questionController = {
         
         // Log if MCQ has no options
         if (normalized.type === 'mcq' && normalized.options.length === 0) {
-          console.warn(`⚠️  MCQ question has no options: "${q.question.substring(0, 50)}..."`);
+          console.warn(` MCQ question has no options: "${q.question.substring(0, 50)}..."`);
           console.warn(`   Raw options from LLM:`, q.options);
         }
         
@@ -132,7 +132,7 @@ const questionController = {
         }
       }
 
-      console.log(`✅ Generated ${questions.length} ${questionMode} questions for video ${video_id}`);
+      // console.log(` Generated ${questions.length} ${questionMode} questions for video ${video_id}`);
       
       res.json({
         success: true,
@@ -141,7 +141,7 @@ const questionController = {
         count: questions.length
       });
     } catch (error) {
-      console.error('❌ Question generation error:', error);
+      console.error(' Question generation error:', error);
       res.status(500).json({
         success: false,
         error: error.message,
@@ -228,7 +228,7 @@ const questionController = {
       progress.lastAccessed = new Date();
       await progress.save();
 
-      console.log(`✅ Saved response for user ${username}, question ${question_id}, correct: ${isCorrect}`);
+      // console.log(` Saved response for user ${username}, question ${question_id}, correct: ${isCorrect}`);
 
       res.json({ 
         success: true,
@@ -238,7 +238,7 @@ const questionController = {
         score: progress.score
       });
     } catch (error) {
-      console.error('❌ Save response error:', error);
+      console.error(' Save response error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to save response" 
@@ -291,7 +291,7 @@ const questionController = {
         }
       });
     } catch (error) {
-      console.error('❌ Get progress error:', error);
+      console.error(' Get progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get progress" 
@@ -331,7 +331,7 @@ const questionController = {
         lastAccessed: progress.lastAccessed
       });
     } catch (error) {
-      console.error('❌ Get quiz score error:', error);
+      console.error(' Get quiz score error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get quiz score" 
@@ -354,14 +354,14 @@ const questionController = {
 
       await Progress.findOneAndDelete({ userId: user._id, videoId: video_id });
 
-      console.log(`🔄 Reset progress for user ${username}, video ${video_id}`);
+      console.log(`Reset progress for user ${username}, video ${video_id}`);
 
       res.json({
         success: true,
         message: "Progress reset successfully"
       });
     } catch (error) {
-      console.error('❌ Reset progress error:', error);
+      console.error(' Reset progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to reset progress" 
