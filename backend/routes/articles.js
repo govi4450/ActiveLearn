@@ -1,30 +1,16 @@
+
 const express = require('express');
 const router = express.Router();
-const ArticleService = require('../services/articleService');
-const TranscriptService = require('../services/transcriptService');
-const GeminiService = require('../services/geminiService');
-
-/**
- * POST /api/articles/clear-cache
- * Clear the article cache
- */
-router.post('/articles/clear-cache', (req, res) => {
-  try {
-    ArticleService.clearCache();
-    res.json({ success: true, message: 'Cache cleared' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to clear cache' });
-  }
-});
 
 /**
  * POST /api/articles/:videoId
- * Get articles for a specific video based on its content
+ * Simplified endpoint that returns fallback articles
+ * The frontend now handles article fetching directly via Google API
  */
 router.post('/articles/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
-    const { videoTitle, summary, transcript } = req.body;
+    const { videoTitle } = req.body;
 
     if (!videoId) {
       return res.status(400).json({ error: 'Video ID is required' });
@@ -34,23 +20,38 @@ router.post('/articles/:videoId', async (req, res) => {
       return res.status(400).json({ error: 'Video title is required' });
     }
 
-    console.log(`📰 Fetching articles for video: ${videoId}`);
-    console.log(`📝 Title: ${videoTitle}`);
-
-    // Get articles directly from video title
-    // Summary and transcript are optional and will be used if provided
-    const articles = await ArticleService.getArticlesForVideo(
-      videoId,
-      videoTitle,
-      summary || '',
-      transcript || ''
-    );
+    // Return fallback articles since frontend handles the real fetching
+    const topic = videoTitle.split(' ').slice(0, 3).join(' ');
+    
+    const fallbackArticles = [
+      {
+        source: 'wikipedia.org',
+        title: `${topic} - Wikipedia`,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        snippet: `Comprehensive information about ${topic} and related concepts.`,
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`
+      },
+      {
+        source: 'britannica.com',
+        title: `${topic} | Britannica`,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        snippet: `Detailed encyclopedia entry about ${topic}.`,
+        url: `https://www.britannica.com/search?query=${encodeURIComponent(topic)}`
+      },
+      {
+        source: 'khanacademy.org',
+        title: `Learn ${topic} - Khan Academy`,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        snippet: `Interactive learning materials and exercises related to ${topic}.`,
+        url: `https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(topic)}`
+      }
+    ];
 
     res.json({
       success: true,
       videoId,
-      articles,
-      count: articles.length
+      articles: fallbackArticles,
+      count: fallbackArticles.length
     });
 
   } catch (error) {
@@ -63,67 +64,11 @@ router.post('/articles/:videoId', async (req, res) => {
 });
 
 /**
- * POST /api/articles/batch
- * Get articles for multiple videos at once
+ * POST /api/articles/clear-cache
+ * Legacy endpoint - now just returns success
  */
-router.post('/articles/batch', async (req, res) => {
-  try {
-    const { videos } = req.body;
-
-    if (!videos || !Array.isArray(videos)) {
-      return res.status(400).json({ error: 'Videos array is required' });
-    }
-
-    console.log(`📰 Fetching articles for ${videos.length} videos`);
-
-    // Clear cache for new batch
-    ArticleService.clearCache();
-
-    const results = {};
-    const errors = {};
-
-    // Process videos sequentially to avoid rate limiting
-    for (const video of videos) {
-      try {
-        const { videoId, videoTitle, summary, transcript } = video;
-
-        if (!videoId || !videoTitle) {
-          errors[videoId || 'unknown'] = 'Missing videoId or videoTitle';
-          continue;
-        }
-
-        const articles = await ArticleService.getArticlesForVideo(
-          videoId,
-          videoTitle,
-          summary || '',
-          transcript || ''
-        );
-
-        results[videoId] = articles;
-
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-      } catch (error) {
-        console.error(`Error fetching articles for video ${video.videoId}:`, error);
-        errors[video.videoId] = error.message;
-      }
-    }
-
-    res.json({
-      success: true,
-      results,
-      errors: Object.keys(errors).length > 0 ? errors : undefined,
-      totalProcessed: Object.keys(results).length
-    });
-
-  } catch (error) {
-    console.error('Error in batch article fetch:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch articles',
-      message: error.message 
-    });
-  }
+router.post('/articles/clear-cache', (req, res) => {
+  res.json({ success: true, message: 'Cache cleared' });
 });
 
 module.exports = router;

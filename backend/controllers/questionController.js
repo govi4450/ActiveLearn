@@ -9,24 +9,19 @@ const { parseGeminiResponse } = require('../utils/parsers');
 const questionController = {
   async generateQuestions(req, res) {
     try {
-      const { video_id, username, force, mode } = req.query;
+      const { video_id, username, force, mode, video_title, video_thumbnail } = req.query;
       const questionMode = mode || 'quiz'; // Default to 'quiz' if not specified
       
       if (!video_id) {
         return res.status(400).json({ error: "Video ID is required" });
       }
 
-      // console.log(` Question generation request for video: ${video_id}, mode: ${questionMode}, force: ${force}, user: ${username || 'anonymous'}`);
-
       if (force === 'true') {
-        // console.log(` Force option detected. Deleting existing ${questionMode} questions for video ${video_id}...`);
         await Question.deleteMany({ videoId: video_id, mode: questionMode });
-        // console.log(' Existing questions deleted.');
       } else {
         // Check if questions already exist for this mode
         const existingQuestions = await Question.find({ videoId: video_id, mode: questionMode });
         if (existingQuestions.length > 0) {
-          // console.log(` Returning ${existingQuestions.length} cached ${questionMode} questions for video ${video_id}`);
           return res.json({
             success: true,
             questions: existingQuestions,
@@ -47,7 +42,6 @@ const questionController = {
       if (video && video.summary && video.summary.length > 0) {
         summaryText = video.summary.map(s => s.text).join('\n');
       } else {
-        // console.log(" Generating summary as it was not found...");
         const summaryPoints = await GeminiService.generateSummary(transcriptText);
         summaryText = summaryPoints.join('\n');
         
@@ -57,12 +51,9 @@ const questionController = {
         }
         video.summary = summaryPoints.map(point => ({ text: point }));
         await video.save();
-        // console.log(" Summary saved.");
       }
 
-      // console.log(" Generating questions with Gemini...");
       const geminiResponse = await GeminiService.generateQuestions(transcriptText, summaryText);
-      console.log("RAW GEMINI RESPONSE:", geminiResponse);
       const questionsData = parseGeminiResponse(geminiResponse);
 
       if (!questionsData || questionsData.length === 0) {
@@ -102,12 +93,6 @@ const questionController = {
           order: index + 1
         };
         
-        // Log if MCQ has no options
-        if (normalized.type === 'mcq' && normalized.options.length === 0) {
-          console.warn(` MCQ question has no options: "${q.question.substring(0, 50)}..."`);
-          console.warn(`   Raw options from LLM:`, q.options);
-        }
-        
         return normalized;
       });
       
@@ -122,6 +107,9 @@ const questionController = {
             { 
               userId: user._id, 
               videoId: video_id,
+              videoTitle: video_title || '',
+              videoThumbnail: video_thumbnail || `https://img.youtube.com/vi/${video_id}/mqdefault.jpg`,
+              lastAccessed: new Date(),
               $setOnInsert: { 
                 responses: [], 
                 score: { correct: 0, total: 0, percentage: 0 } 
@@ -131,8 +119,6 @@ const questionController = {
           );
         }
       }
-
-      // console.log(` Generated ${questions.length} ${questionMode} questions for video ${video_id}`);
       
       res.json({
         success: true,
@@ -152,7 +138,7 @@ const questionController = {
 
   async saveResponse(req, res) {
     try {
-      const { video_id, question_id, user_answer, username } = req.body;
+      const { video_id, question_id, user_answer, username, video_title, video_thumbnail } = req.body;
       
       if (!username || !video_id || !question_id || typeof user_answer === 'undefined') {
         return res.status(400).json({ error: "Missing required fields: username, video_id, question_id, user_answer" });
@@ -176,7 +162,7 @@ const questionController = {
         return res.status(404).json({ error: "Question not found" });
       }
 
-      const isCorrect = this.checkAnswerCorrectness(user_answer, question.correctAnswer);
+      const isCorrect = questionController.checkAnswerCorrectness(user_answer, question.correctAnswer);
 
       // Find or create progress record
       let progress = await Progress.findOne({ userId: user._id, videoId: video_id });
@@ -184,9 +170,15 @@ const questionController = {
         progress = new Progress({
           userId: user._id,
           videoId: video_id,
+          videoTitle: video_title || '',
+          videoThumbnail: video_thumbnail || `https://img.youtube.com/vi/${video_id}/mqdefault.jpg`,
           responses: [],
           score: { correct: 0, total: 0, percentage: 0 }
         });
+      } else {
+        // Update video metadata if provided
+        if (video_title) progress.videoTitle = video_title;
+        if (video_thumbnail) progress.videoThumbnail = video_thumbnail;
       }
 
       // Check if response already exists for this question
@@ -221,14 +213,13 @@ const questionController = {
         percentage: totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
       };
 
-      // Mark as completed if all questions are answered (assuming we know total questions)
+      // Mark as completed if at least 5 questions are answered OR all questions are answered
       const totalQuestionsForVideo = await Question.countDocuments({ videoId: video_id });
-      progress.completed = progress.responses.length >= totalQuestionsForVideo;
+      const minQuestionsForCompletion = Math.min(5, totalQuestionsForVideo);
+      progress.completed = progress.responses.length >= minQuestionsForCompletion;
 
       progress.lastAccessed = new Date();
       await progress.save();
-
-      // console.log(` Saved response for user ${username}, question ${question_id}, correct: ${isCorrect}`);
 
       res.json({ 
         success: true,
@@ -299,45 +290,6 @@ const questionController = {
     }
   },
 
-  async getQuizScore(req, res) {
-    try {
-      const { video_id, username } = req.query;
-      
-      if (!username || !video_id) {
-        return res.status(400).json({ error: "Username and video ID are required" });
-      }
-
-      const user = await User.findOne({ username });
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const progress = await Progress.findOne({ userId: user._id, videoId: video_id });
-      
-      if (!progress) {
-        return res.json({
-          success: true,
-          score: { correct: 0, total: 0, percentage: 0 },
-          answered: 0,
-          completed: false
-        });
-      }
-
-      res.json({
-        success: true,
-        score: progress.score,
-        answered: progress.responses.length,
-        completed: progress.completed,
-        lastAccessed: progress.lastAccessed
-      });
-    } catch (error) {
-      console.error(' Get quiz score error:', error);
-      res.status(500).json({ 
-        error: error.message,
-        details: "Failed to get quiz score" 
-      });
-    }
-  },
 
   async resetProgress(req, res) {
     try {
@@ -353,8 +305,6 @@ const questionController = {
       }
 
       await Progress.findOneAndDelete({ userId: user._id, videoId: video_id });
-
-      console.log(`Reset progress for user ${username}, video ${video_id}`);
 
       res.json({
         success: true,
@@ -415,6 +365,46 @@ const questionController = {
     }
 
     return false;
+  },
+
+  async markCompleted(req, res) {
+    try {
+      const { username, video_id } = req.body;
+      
+      if (!username || !video_id) {
+        return res.status(400).json({ error: "Username and video ID are required" });
+      }
+
+      const user = await User.findOne({ username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const progress = await Progress.findOne({ userId: user._id, videoId: video_id });
+      if (!progress) {
+        return res.status(404).json({ error: "No progress found for this video" });
+      }
+
+      // Mark as completed
+      progress.completed = true;
+      progress.lastAccessed = new Date();
+      await progress.save();
+
+      res.json({ 
+        success: true,
+        message: "Quiz marked as completed",
+        progress: {
+          completed: progress.completed,
+          score: progress.score
+        }
+      });
+    } catch (error) {
+      console.error('❌ Mark completed error:', error);
+      res.status(500).json({ 
+        error: error.message,
+        details: "Failed to mark quiz as completed" 
+      });
+    }
   }
 };
 

@@ -24,6 +24,14 @@ const progressSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  videoTitle: {
+    type: String,
+    default: ''
+  },
+  videoThumbnail: {
+    type: String,
+    default: ''
+  },
   responses: [responseSchema],
   score: {
     correct: Number,

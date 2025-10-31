@@ -100,6 +100,50 @@ Generate all 10 questions now:`;
       throw new Error('Failed to generate questions');
     }
   }
+
+  static async generateMindMap(transcript) {
+    const prompt = `Create a concise mind map structure (nodes and directed edges) from the transcript below. Output MUST be valid JSON in the following schema exactly without extra commentary:
+{
+  "nodes": [{ "id": "n1", "label": "Root concept" }, ...],
+  "edges": [{ "source": "n1", "target": "n2", "label": "relation (optional)" }, ...]
+}
+
+Guidelines:
+- Choose a clear root node (the main topic) and produce 6-20 nodes total, covering main ideas and subtopics.
+- Keep labels short (3-8 words).
+- Do not include timestamps, URLs, or talk about the speaker.
+- Output only the JSON object and nothing else.
+
+Transcript:
+${transcript.substring(0, 12000)}
+`;
+
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1500 }
+      });
+      const response = await result.response;
+      const text = await response.text();
+
+      // Attempt to parse JSON from returned text (strip trailing/following text)
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error('Invalid mind map response from model');
+      }
+      const jsonText = text.substring(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(jsonText);
+      // Basic validation
+      if (!parsed.nodes || !Array.isArray(parsed.nodes) || !parsed.edges || !Array.isArray(parsed.edges)) {
+        throw new Error('Mind map JSON missing nodes/edges');
+      }
+      return parsed;
+    } catch (error) {
+      console.error('Mind map generation error:', error);
+      throw new Error('Failed to generate mind map');
+    }
+  }
 }
 
 module.exports = GeminiService;

@@ -14,6 +14,9 @@ const videoSchema = new mongoose.Schema({
     text: String,
     timestamp: Number
   }],
+  mindmap: {
+    type: Object
+  },
   metadata: {
     views: Number,
     likes: Number,
