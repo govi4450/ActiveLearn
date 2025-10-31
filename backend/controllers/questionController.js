@@ -127,7 +127,7 @@ const questionController = {
         count: questions.length
       });
     } catch (error) {
-      console.error('❌ Question generation error:', error);
+      console.error(' Question generation error:', error);
       res.status(500).json({
         success: false,
         error: error.message,
@@ -229,7 +229,7 @@ const questionController = {
         score: progress.score
       });
     } catch (error) {
-      console.error('❌ Save response error:', error);
+      console.error(' Save response error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to save response" 
@@ -282,7 +282,7 @@ const questionController = {
         }
       });
     } catch (error) {
-      console.error('❌ Get progress error:', error);
+      console.error(' Get progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get progress" 
@@ -311,7 +311,7 @@ const questionController = {
         message: "Progress reset successfully"
       });
     } catch (error) {
-      console.error('❌ Reset progress error:', error);
+      console.error(' Reset progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to reset progress" 
