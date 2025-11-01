@@ -1,5 +1,5 @@
 // API Configuration
-export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:3000';
+export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5001';
 export const YOUTUBE_API_KEY = "AIzaSyCS4t0eaxZnhfV80u-X15incPyzHt_b2As";
 
 // Trusted article sources

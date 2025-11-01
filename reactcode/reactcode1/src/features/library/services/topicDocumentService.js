@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-// Base API configuration
-const API_URL = 'http://localhost:3000';
+// Base API configuration - use relative paths that work with proxy
+const API_BASE = '/api/topic-documents';
+const LIBRARY_BASE = '/api/library';
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = `${API_URL}/api`;
 
 // Add request interceptor for logging
 axios.interceptors.request.use(request => {
@@ -29,7 +29,7 @@ axios.interceptors.response.use(
 export const trackVideoWatch = async (username, videoId, videoTitle, topic, keywords) => {
   try {
     const response = await axios.post(
-      `${API_URL}/track`,
+      `${API_BASE}/track`,
       { username, videoId, videoTitle, topic, keywords },
       { withCredentials: true } // Include cookies for authentication
     );
@@ -44,7 +44,7 @@ export const trackVideoWatch = async (username, videoId, videoTitle, topic, keyw
 export const generateConsolidatedSummary = async (username, topic) => {
   try {
     const response = await axios.post(
-      `${API_URL}/generate/${encodeURIComponent(topic)}`,
+      `${LIBRARY_BASE}/summarize/${encodeURIComponent(topic)}`,
       { username },
       { withCredentials: true }
     );
@@ -60,7 +60,7 @@ export const generateConsolidatedSummary = async (username, topic) => {
 export const getAllTopicDocuments = async (username) => {
   try {
     const response = await axios.post(
-      API_URL,
+      API_BASE,
       { username },
       { withCredentials: true }
     );
@@ -75,7 +75,7 @@ export const getAllTopicDocuments = async (username) => {
 export const getTopicDocument = async (id) => {
   try {
     const response = await axios.get(
-      `${API_URL}/${id}`,
+      `${LIBRARY_BASE}/topic/${id}`,
       { withCredentials: true }
     );
     return response.data;
@@ -89,13 +89,28 @@ export const getTopicDocument = async (id) => {
 export const deleteTopicDocument = async (id) => {
   try {
     const response = await axios.delete(
-      `${API_URL}/${id}`,
+      `${API_BASE}/${id}`,
       { withCredentials: true }
     );
     return response.data;
   } catch (error) {
     console.error('Error deleting topic document:', error);
     throw error.response?.data || { error: 'Failed to delete topic document' };
+  }
+};
+
+// Update summary manually
+export const updateSummary = async (id, mainConcepts, detailedPoints, relatedTopics) => {
+  try {
+    const response = await axios.put(
+      `${LIBRARY_BASE}/update-summary/${id}`,
+      { mainConcepts, detailedPoints, relatedTopics },
+      { withCredentials: true }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error updating summary:', error);
+    throw error.response?.data || { error: 'Failed to update summary' };
   }
 };
 
@@ -111,7 +126,7 @@ export const getUserLibrary = async (username) => {
     const encodedUsername = encodeURIComponent(username);
     console.log(`[getUserLibrary] Fetching library for user: ${username} (encoded: ${encodedUsername})`);
     
-    const response = await axios.get(`/library/user/${encodedUsername}`, {
+    const response = await axios.get(`${LIBRARY_BASE}/user/${encodedUsername}`, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'

@@ -1,5 +1,5 @@
 const TopicDocument = require('../models/TopicDocument');
-const { generateDetailedSummary } = require('../services/geminiService');
+const GeminiService = require('../services/geminiService');
 const User = require('../models/User');
 
 // Track video watch for topic documentation
@@ -119,7 +119,7 @@ Format your response as JSON:
 
 Make this a THOROUGH educational resource that combines insights from all the videos watched.`;
 
-    const summaryData = await generateDetailedSummary(prompt);
+    const summaryData = await GeminiService.generateDetailedSummary(prompt);
     
     // Update topic document with consolidated summary
     topicDoc.consolidatedSummary = {
@@ -156,20 +156,12 @@ exports.getUserLibrary = async (req, res) => {
     }
 
     // Get all topic documents for the user, sorted by last accessed
+    // Return full documents with all fields needed by frontend
     const topicDocs = await TopicDocument.find({ userId: user._id })
-      .sort({ lastAccessed: -1 });
+      .sort({ lastAccessed: -1 })
+      .select('-__v');
 
-    // Format the response to include only necessary library information
-    const library = topicDocs.map(doc => ({
-      id: doc._id,
-      topic: doc.topic,
-      lastAccessed: doc.lastAccessed,
-      totalVideos: doc.totalVideosWatched,
-      summary: doc.consolidatedSummary?.mainConcepts?.slice(0, 3) || [],
-      lastVideo: doc.videosSummaries[0]?.videoTitle || 'No videos watched'
-    }));
-
-    res.json({ topicDocuments: library });
+    res.json({ topicDocuments: topicDocs });
   } catch (error) {
     console.error('Error in getUserLibrary:', error);
     res.status(500).json({ 
@@ -284,11 +276,10 @@ exports.getTopicDocumentById = async (req, res) => {
 // Delete topic document
 exports.deleteTopicDocument = async (req, res) => {
   try {
-    const { topic } = req.params;
+    const { id } = req.params;
     const userId = req.user._id;
-    const normalizedTopic = topic.toLowerCase().trim();
 
-    const result = await TopicDocument.findOneAndDelete({ userId, normalizedTopic });
+    const result = await TopicDocument.findOneAndDelete({ _id: id, userId });
 
     if (!result) {
       return res.status(404).json({ error: 'Topic document not found' });
@@ -301,5 +292,38 @@ exports.deleteTopicDocument = async (req, res) => {
   } catch (error) {
     console.error('Error deleting topic document:', error);
     res.status(500).json({ error: 'Failed to delete topic document' });
+  }
+};
+
+// Update summary manually
+exports.updateSummary = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mainConcepts, detailedPoints, relatedTopics } = req.body;
+    const userId = req.user._id;
+
+    const topicDoc = await TopicDocument.findOne({ _id: id, userId });
+
+    if (!topicDoc) {
+      return res.status(404).json({ error: 'Topic document not found' });
+    }
+
+    // Update consolidated summary
+    topicDoc.consolidatedSummary = {
+      mainConcepts: mainConcepts || [],
+      detailedPoints: detailedPoints || [],
+      relatedTopics: relatedTopics || [],
+      lastUpdated: new Date()
+    };
+
+    await topicDoc.save();
+
+    res.json({
+      success: true,
+      topicDocument: topicDoc
+    });
+  } catch (error) {
+    console.error('Error updating summary:', error);
+    res.status(500).json({ error: 'Failed to update summary' });
   }
 };

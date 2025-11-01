@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api/achievements';
+const API_BASE_URL = '/api/achievements';
 
 export async function fetchAchievements(username) {
 	try {

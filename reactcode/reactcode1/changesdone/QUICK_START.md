@@ -1,81 +1,179 @@
-# Quick Start Guide - Article Feature
+# 🚀 Quick Start Guide
 
-## 🚀 Get Started in 5 Minutes
+## Option 1: One-Command Startup (Recommended)
 
-### Step 1: Add API Keys to `.env`
+### Setup (First Time Only)
 
-Open `/backend/.env` and add these three lines:
-
+1. **Add environment variables:**
 ```bash
-GOOGLE_SEARCH_API_KEY_1=your_first_api_key_here
-GOOGLE_SEARCH_API_KEY_2=your_second_api_key_here
-GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn/backend"
 ```
 
-**Don't have API keys yet?** See detailed instructions in `ARTICLE_FEATURE_SETUP.md`
+Add to `.env` file:
+```
+LOKDIN_API_URL=http://localhost:5000
+PORT=5001
+```
 
-### Step 2: Start Backend
+2. **Install dependencies** (if not already done):
+```bash
+# Lokdin Python dependencies
+cd "/Users/vikaschoudhary/Downloads/engagement_analysis-main (2)/Engagmentnew/Feedback_Report/backend"
+pip3 install -r requirements.txt
+
+# ActiveLearn backend dependencies
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn/backend"
+npm install
+
+# ActiveLearn frontend dependencies
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn/reactcode/reactcode1"
+npm install
+```
+
+### Start Everything
+
+**Single command:**
+```bash
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn"
+./start-all.sh
+```
+
+This will:
+- ✅ Start Lokdin on port 5000
+- ✅ Start ActiveLearn Backend on port 5001
+- ✅ Start ActiveLearn Frontend on port 3000
+- ✅ Open browser automatically
+
+### Stop Everything
 
 ```bash
-cd backend
+./stop-all.sh
+```
+
+Or press `Ctrl+C` in the terminal running `start-all.sh`
+
+---
+
+## Option 2: Manual Startup (For Debugging)
+
+**Terminal 1 - Lokdin:**
+```bash
+cd "/Users/vikaschoudhary/Downloads/engagement_analysis-main (2)/Engagmentnew/Feedback_Report/backend/apis"
+python3 run.py
+```
+
+**Terminal 2 - Backend:**
+```bash
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn/backend"
 npm start
 ```
 
-You should see: `Server running on port 5000`
-
-### Step 3: Start Frontend
-
+**Terminal 3 - Frontend:**
 ```bash
-cd reactcode/reactcode1
+cd "/Users/vikaschoudhary/Documents/Active Leaarning /ActiveLearn/reactcode/reactcode1"
 npm start
 ```
 
-Browser should open at `http://localhost:3000`
+---
 
-### Step 4: Test It!
+## Testing the Integration
 
-1. Search for any topic (e.g., "Machine Learning")
-2. Wait for videos to load
-3. Watch as unique articles appear below each video
-4. Click article links to verify they work
-5. Notice each video has different, relevant articles
+1. **Open browser:** http://localhost:3000
+2. **Login** to ActiveLearn
+3. **Go to Dashboard**
+4. **Click "📹 Engagement Feedback" tab**
+5. **Click "Start Engagement Monitoring"**
+6. **Accept consent** → Monitoring starts!
 
 ---
 
-## ✅ What to Expect
+## Troubleshooting
 
-### Before (Old System):
-- ❌ Same articles repeated for all videos
-- ❌ Links to Coursera search pages
-- ❌ Generic, non-specific content
+### "Port already in use"
+```bash
+# Kill processes on ports
+./stop-all.sh
+```
 
-### After (New System):
-- ✅ Unique articles for each video
-- ✅ Direct links to actual articles
-- ✅ Content specific to each video's topic
-- ✅ From trusted educational sources only
+### "Lokdin not available"
+```bash
+# Check if Lokdin is running
+curl http://localhost:5000/api/health
+# Should return: {"status":"healthy"}
+```
 
----
-
-## 🔧 Quick Troubleshooting
-
-### "Failed to fetch articles"
-→ Check that backend is running on port 5000
-
-### Seeing fallback articles (Wikipedia, Britannica, Khan Academy)
-→ API keys not set or invalid in `.env`
-
-### Articles still repeating
-→ Clear browser cache and restart backend
+### "Camera not working"
+- Grant browser camera permissions
+- Check macOS System Preferences → Security & Privacy → Camera
+- Restart browser
 
 ---
 
-## 📚 Need More Help?
+## Project Structure
 
-- **Full Setup Guide**: `ARTICLE_FEATURE_SETUP.md`
-- **Changes Summary**: `CHANGES_SUMMARY.md`
-- **Test API**: Run `node backend/test-article-api.js`
+```
+Active Leaarning /
+└── ActiveLearn/              # Your main project
+    ├── backend/              # Node.js server (Port 5001)
+    ├── reactcode/reactcode1/ # React app (Port 3000)
+    ├── start-all.sh         # ← Start everything
+    └── stop-all.sh          # ← Stop everything
+
+Downloads/
+└── engagement_analysis-main (2)/
+    └── Engagmentnew/Feedback_Report/
+        └── backend/apis/     # Lokdin server (Port 5000)
+```
 
 ---
 
-**Ready to go!** 🎉
+## FAQ
+
+### Q: Do I need to keep both projects separate?
+**A:** Yes, but they run together automatically with `./start-all.sh`. The separation is good because:
+- Python is better for computer vision
+- Can scale independently
+- Cleaner architecture
+
+### Q: Can I deploy this to production?
+**A:** Yes! You'll need to:
+1. Deploy Lokdin Python API (Heroku, AWS, etc.)
+2. Deploy ActiveLearn backend
+3. Deploy ActiveLearn frontend
+4. Update `LOKDIN_API_URL` to production URL
+
+### Q: Does engagement monitoring work offline?
+**A:** No, requires:
+- Active internet for MongoDB
+- Camera access
+- Lokdin service running
+
+### Q: Can other features work without engagement monitoring?
+**A:** Yes! All existing ActiveLearn features work independently. Engagement is optional.
+
+---
+
+## What Happens When You Run It
+
+```
+./start-all.sh
+    ↓
+[1] Starts Lokdin (Python Flask)
+    → Loads ML models (MediaPipe, DeepFace)
+    → Listens on port 5000
+    ↓
+[2] Starts ActiveLearn Backend (Node.js)
+    → Connects to MongoDB
+    → Connects to Lokdin API
+    → Listens on port 5001
+    ↓
+[3] Starts ActiveLearn Frontend (React)
+    → Opens browser at localhost:3000
+    → Ready to use!
+```
+
+---
+
+**That's it! You're ready to go!** 🎉
+
+Just run `./start-all.sh` and everything works together.
