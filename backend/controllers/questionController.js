@@ -230,6 +230,7 @@ const questionController = {
       });
     } catch (error) {
       console.error('Save response error:', error);
+      console.error(' Save response error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to save response" 
@@ -283,6 +284,7 @@ const questionController = {
       });
     } catch (error) {
       console.error('Get progress error:', error);
+      console.error(' Get progress error:', error);
       res.status(500).json({ 
         error: error.message,
         details: "Failed to get progress" 
