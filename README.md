@@ -1,22 +1,28 @@
 ActiveLearn: An AI-Powered Active Learning Platform
 
-Learn smarter, not harder! ActiveLearn is the next-generation platform  which focuses on active learning and is designed to transform how you interact with educational videos. We combine the power of AI summarization with real-time focus tracking to ensure you don't just watch—you truly learn.
-
-
+Learn smarter, not longer. 
+ActiveLearn is a next-gen learning platform built for active learning, reshaping how you engage with educational videos. It blends AI-powered summaries with real-time focus tracking, so you don’t just watch content—you actually retain it.
 
 Why ActiveLearn?
 
-Tired of forgetting what you watched five minutes ago? ActiveLearn solves the most common study problems: distraction and information overload.
+Ever finished a video and forgotten everything moments later? ActiveLearn tackles the two biggest learning blockers: distractions and information overload.
+
+🔹 Smart, Brain-Friendly Notes
+Get clean, AI-generated learning documents for every topic you study—created from your actual viewing experience. Skip endless transcripts and revise faster.
+
+🔹 Focus Awareness in Real Time
+Detect the moment your attention slips. Our engagement tracking helps you refocus instantly and stay on track.
+
+🔹 Privacy You Can Trust
+Your data never leaves your system. Webcam input is processed locally—nothing is uploaded to the cloud.
+
+Designed for students, professionals, and curious minds, ActiveLearn is your all-in-one learning companion—turning passive watching into powerful understanding. 
 
 
+![WhatsApp Image 2025-11-14 at 23 34 49_ee1b2180](https://github.com/user-attachments/assets/d2462fd9-3fac-4499-9636-81c2bfd4c7df)
 
-Brain-Friendly Summaries: Get consolidated, AI-powered learning documents for every topic you cover, tailored to your actual learning journey. No more wading through long video transcripts!
+![WhatsApp Image 2025-11-14 at 20 44 37_15ec1ace](https://github.com/user-attachments/assets/28fd9a74-1451-4b53-a5eb-e2b0ec1b8eaa)
 
-Know When You Zone Out: Our real-time engagement monitoring tells you when your focus dips, so you can course-correct immediately.
-
-Privacy First: Your focus data stays local. We never send your webcam feed to the cloud.
-
-ActiveLearn is the all-in-one companion for students, busy professionals, and lifelong learners!
-
+![WhatsApp Image 2025-11-14 at 20 45 31_9a06b551](https://github.com/user-attachments/assets/948076bd-68af-4f97-b519-554e4e413584)
 
 
