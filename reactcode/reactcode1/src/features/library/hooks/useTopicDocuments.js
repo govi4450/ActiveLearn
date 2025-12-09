@@ -99,6 +99,21 @@ export const useTopicDocuments = (username) => {
     }
   }, [username, fetchTopicDocuments]);
 
+  const updateSummary = useCallback(async (id, mainConcepts, detailedPoints, relatedTopics) => {
+    if (!username) return;
+    try {
+      const response = await topicDocumentService.updateSummary(id, mainConcepts, detailedPoints, relatedTopics);
+      // Refresh the list after update
+      await fetchTopicDocuments();
+      return response.topicDocument;
+    } catch (err) {
+      const errorMessage = err.error || err.message || 'Failed to update summary';
+      setError(errorMessage);
+      console.error('Error updating summary:', err);
+      throw err;
+    }
+  }, [username, fetchTopicDocuments]);
+
   useEffect(() => {
     fetchTopicDocuments();
   }, [fetchTopicDocuments]);
@@ -110,6 +125,7 @@ export const useTopicDocuments = (username) => {
     fetchTopicDocuments,
     trackVideo,
     generateSummary,
-    deleteDocument
+    deleteDocument,
+    updateSummary
   };
 };

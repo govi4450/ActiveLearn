@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api/goals';
+const API_BASE_URL = '/api/goals';
 
 export async function fetchGoals(username) {
 	try {

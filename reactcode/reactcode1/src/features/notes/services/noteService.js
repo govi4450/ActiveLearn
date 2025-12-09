@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api/notes';
+const API_BASE_URL = '/api/notes';
 
 export async function fetchNotesForVideo(username, videoId) {
 	try {

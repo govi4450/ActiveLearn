@@ -2,9 +2,10 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    // For simplicity, using username from session/body
+    // For simplicity, using username from session/body/params
     // In production, use JWT tokens
-    const { username } = req.body;
+    // Check body first (POST requests), then params (GET requests with :username)
+    const username = req.body.username || req.params.username;
     
     if (!username) {
       return res.status(401).json({ error: "Authentication required" });

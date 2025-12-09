@@ -21,4 +21,7 @@ router.post('/summarize/:topic', auth, topicDocumentController.generateConsolida
 // Get all topic documents for the authenticated user
 router.get('/', auth, topicDocumentController.getAllTopicDocuments);
 
+// Update summary manually
+router.put('/update-summary/:id', auth, topicDocumentController.updateSummary);
+
 module.exports = router;

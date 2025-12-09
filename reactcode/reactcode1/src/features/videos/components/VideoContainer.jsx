@@ -3,6 +3,8 @@ import { useVideos } from '../hooks/useVideos';
 import VideoSearch from './VideoSearch';
 import VideoCardNew from './VideoCardCanonical';
 import VideoCardSkeleton from '../../../components/VideoCardSkeleton';
+import { trackVideoWatch } from '../../library/services/topicDocumentService';
+import LiveEngagementWidget from '../../engagement/components/LiveEngagementWidget';
 
 function VideoContainer({ onSummarize, onQuiz, onPractice, onMindMap, onPlay, onNotes, currentUser }) {
 	const [playingVideoId, setPlayingVideoId] = useState(null);
@@ -12,7 +14,7 @@ function VideoContainer({ onSummarize, onQuiz, onPractice, onMindMap, onPlay, on
 	const [durationFilter, setDurationFilter] = useState('any'); // any | short | medium | long
 	const [viewMode, setViewMode] = useState('grid');
 
-	const handlePlayToggle = (id) => {
+	const handlePlayToggle = async (id) => {
 		if (playingVideoId === id) {
 			// stop playback but keep the video selected as featured
 			setPlayingVideoId(null);
@@ -20,7 +22,35 @@ function VideoContainer({ onSummarize, onQuiz, onPractice, onMindMap, onPlay, on
 			// start playback and make this the selected/featured video
 			setSelectedVideoId(id);
 			setPlayingVideoId(id);
+			
+			// Track video watch for library
+			if (currentUser && searchQuery) {
+				const video = videos.find(v => (v.id?.videoId || v.id) === id);
+				if (video) {
+					try {
+						const videoTitle = video.snippet?.title || 'Untitled Video';
+						const keywords = extractKeywords(videoTitle, searchQuery);
+						await trackVideoWatch(currentUser, id, videoTitle, searchQuery.trim(), keywords);
+						console.log('✅ Video tracked for library:', videoTitle);
+					} catch (error) {
+						console.error('Failed to track video:', error);
+					}
+				}
+			}
 		}
+	};
+	
+	// Extract keywords from video title and search query
+	const extractKeywords = (title, topic) => {
+		const stopWords = ['the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but'];
+		const words = (title + ' ' + topic)
+			.toLowerCase()
+			.replace(/[^\w\s]/g, '')
+			.split(/\s+/)
+			.filter(word => word.length > 3 && !stopWords.includes(word));
+		
+		// Get unique keywords, limit to 5
+		return [...new Set(words)].slice(0, 5);
 	};
 	const {
 		searchQuery,
@@ -34,6 +64,9 @@ function VideoContainer({ onSummarize, onQuiz, onPractice, onMindMap, onPlay, on
 
 	return (
 		<div className="w-full">
+			{/* Live Engagement Widget - Floats on screen */}
+			<LiveEngagementWidget currentUser={currentUser} isVisible={true} />
+			
 			<VideoSearch 
 				searchQuery={searchQuery}
 				setSearchQuery={setSearchQuery}

@@ -3,14 +3,22 @@ import { useTopicDocuments } from '../hooks/useTopicDocuments';
 import Loading from '../../../components/Loading';
 
 function LearningLibrary({ currentUser }) {
-  const { topicDocuments, loading, error, generateSummary, deleteDocument } = useTopicDocuments(currentUser);
+  const { topicDocuments, loading, error, generateSummary, deleteDocument, updateSummary } = useTopicDocuments(currentUser);
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedSummary, setEditedSummary] = useState({
+    mainConcepts: [],
+    detailedPoints: [],
+    relatedTopics: []
+  });
+  const [savingSummary, setSavingSummary] = useState(false);
 
   const handleTopicClick = (topicDoc) => {
     setSelectedTopic(topicDoc);
     setSummaryError(null);
+    setIsEditMode(false);
   };
 
   const handleGenerateSummary = async (topic) => {
@@ -42,6 +50,100 @@ function LearningLibrary({ currentUser }) {
   const handleClose = () => {
     setSelectedTopic(null);
     setSummaryError(null);
+    setIsEditMode(false);
+  };
+
+  const handleEditMode = () => {
+    setIsEditMode(true);
+    setEditedSummary({
+      mainConcepts: [...(selectedTopic.consolidatedSummary?.mainConcepts || [])],
+      detailedPoints: [...(selectedTopic.consolidatedSummary?.detailedPoints || [])],
+      relatedTopics: [...(selectedTopic.consolidatedSummary?.relatedTopics || [])]
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setSummaryError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    setSavingSummary(true);
+    setSummaryError(null);
+    try {
+      const updatedDoc = await updateSummary(
+        selectedTopic._id,
+        editedSummary.mainConcepts,
+        editedSummary.detailedPoints,
+        editedSummary.relatedTopics
+      );
+      setSelectedTopic(updatedDoc);
+      setIsEditMode(false);
+    } catch (err) {
+      setSummaryError('Failed to save changes. Please try again.');
+    } finally {
+      setSavingSummary(false);
+    }
+  };
+
+  const handleAddConcept = () => {
+    setEditedSummary({
+      ...editedSummary,
+      mainConcepts: [...editedSummary.mainConcepts, '']
+    });
+  };
+
+  const handleRemoveConcept = (index) => {
+    setEditedSummary({
+      ...editedSummary,
+      mainConcepts: editedSummary.mainConcepts.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleConceptChange = (index, value) => {
+    const newConcepts = [...editedSummary.mainConcepts];
+    newConcepts[index] = value;
+    setEditedSummary({ ...editedSummary, mainConcepts: newConcepts });
+  };
+
+  const handleAddPoint = () => {
+    setEditedSummary({
+      ...editedSummary,
+      detailedPoints: [...editedSummary.detailedPoints, '']
+    });
+  };
+
+  const handleRemovePoint = (index) => {
+    setEditedSummary({
+      ...editedSummary,
+      detailedPoints: editedSummary.detailedPoints.filter((_, i) => i !== index)
+    });
+  };
+
+  const handlePointChange = (index, value) => {
+    const newPoints = [...editedSummary.detailedPoints];
+    newPoints[index] = value;
+    setEditedSummary({ ...editedSummary, detailedPoints: newPoints });
+  };
+
+  const handleAddTopic = () => {
+    setEditedSummary({
+      ...editedSummary,
+      relatedTopics: [...editedSummary.relatedTopics, '']
+    });
+  };
+
+  const handleRemoveTopic = (index) => {
+    setEditedSummary({
+      ...editedSummary,
+      relatedTopics: editedSummary.relatedTopics.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleTopicChange = (index, value) => {
+    const newTopics = [...editedSummary.relatedTopics];
+    newTopics[index] = value;
+    setEditedSummary({ ...editedSummary, relatedTopics: newTopics });
   };
 
   if (loading && topicDocuments.length === 0) {
@@ -148,24 +250,53 @@ function LearningLibrary({ currentUser }) {
               <div className="document-section">
                 <div className="section-header">
                   <h3>📚 Consolidated Learning Summary</h3>
-                  {!selectedTopic.consolidatedSummary?.lastUpdated && (
-                    <button
-                      className="generate-summary-btn"
-                      onClick={() => handleGenerateSummary(selectedTopic.normalizedTopic)}
-                      disabled={generatingSummary}
-                    >
-                      {generatingSummary ? '⏳ Generating...' : '✨ Generate Summary'}
-                    </button>
-                  )}
-                  {selectedTopic.consolidatedSummary?.lastUpdated && (
-                    <button
-                      className="regenerate-summary-btn"
-                      onClick={() => handleGenerateSummary(selectedTopic.normalizedTopic)}
-                      disabled={generatingSummary}
-                    >
-                      {generatingSummary ? '⏳ Regenerating...' : '🔄 Regenerate'}
-                    </button>
-                  )}
+                  <div className="summary-actions">
+                    {!selectedTopic.consolidatedSummary?.lastUpdated && (
+                      <button
+                        className="generate-summary-btn"
+                        onClick={() => handleGenerateSummary(selectedTopic.normalizedTopic)}
+                        disabled={generatingSummary}
+                      >
+                        {generatingSummary ? '⏳ Generating...' : '✨ Generate Summary'}
+                      </button>
+                    )}
+                    {selectedTopic.consolidatedSummary?.lastUpdated && !isEditMode && (
+                      <>
+                        <button
+                          className="edit-summary-btn"
+                          onClick={handleEditMode}
+                          disabled={generatingSummary}
+                        >
+                          ✏️ Edit Summary
+                        </button>
+                        <button
+                          className="regenerate-summary-btn"
+                          onClick={() => handleGenerateSummary(selectedTopic.normalizedTopic)}
+                          disabled={generatingSummary}
+                        >
+                          {generatingSummary ? '⏳ Regenerating...' : '🔄 Regenerate'}
+                        </button>
+                      </>
+                    )}
+                    {isEditMode && (
+                      <>
+                        <button
+                          className="save-summary-btn"
+                          onClick={handleSaveEdit}
+                          disabled={savingSummary}
+                        >
+                          {savingSummary ? '⏳ Saving...' : '💾 Save Changes'}
+                        </button>
+                        <button
+                          className="cancel-edit-btn"
+                          onClick={handleCancelEdit}
+                          disabled={savingSummary}
+                        >
+                          ❌ Cancel
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {summaryError && (
@@ -178,40 +309,102 @@ function LearningLibrary({ currentUser }) {
                       Last updated: {new Date(selectedTopic.consolidatedSummary.lastUpdated).toLocaleString()}
                     </div>
 
-                    {/* Main Concepts */}
-                    {selectedTopic.consolidatedSummary.mainConcepts?.length > 0 && (
-                      <div className="summary-subsection">
-                        <h4>🎯 Main Concepts</h4>
-                        <ul className="concepts-list">
-                          {selectedTopic.consolidatedSummary.mainConcepts.map((concept, index) => (
-                            <li key={index}>{concept}</li>
+                    {isEditMode ? (
+                      /* Edit Mode */
+                      <div className="summary-edit-mode">
+                        {/* Edit Main Concepts */}
+                        <div className="summary-subsection">
+                          <h4>🎯 Main Concepts</h4>
+                          {editedSummary.mainConcepts.map((concept, index) => (
+                            <div key={index} className="edit-item">
+                              <input
+                                type="text"
+                                value={concept}
+                                onChange={(e) => handleConceptChange(index, e.target.value)}
+                                className="edit-input"
+                                placeholder="Enter concept"
+                              />
+                              <button onClick={() => handleRemoveConcept(index)} className="remove-btn">🗑️</button>
+                            </div>
                           ))}
-                        </ul>
-                      </div>
-                    )}
+                          <button onClick={handleAddConcept} className="add-item-btn">+ Add Concept</button>
+                        </div>
 
-                    {/* Detailed Points */}
-                    {selectedTopic.consolidatedSummary.detailedPoints?.length > 0 && (
-                      <div className="summary-subsection">
-                        <h4>📖 Detailed Explanation</h4>
-                        <ul className="detailed-points-list">
-                          {selectedTopic.consolidatedSummary.detailedPoints.map((point, index) => (
-                            <li key={index}>{point}</li>
+                        {/* Edit Detailed Points */}
+                        <div className="summary-subsection">
+                          <h4>📖 Detailed Explanation</h4>
+                          {editedSummary.detailedPoints.map((point, index) => (
+                            <div key={index} className="edit-item">
+                              <textarea
+                                value={point}
+                                onChange={(e) => handlePointChange(index, e.target.value)}
+                                className="edit-textarea"
+                                placeholder="Enter detailed point"
+                                rows="2"
+                              />
+                              <button onClick={() => handleRemovePoint(index)} className="remove-btn">🗑️</button>
+                            </div>
                           ))}
-                        </ul>
-                      </div>
-                    )}
+                          <button onClick={handleAddPoint} className="add-item-btn">+ Add Point</button>
+                        </div>
 
-                    {/* Related Topics */}
-                    {selectedTopic.consolidatedSummary.relatedTopics?.length > 0 && (
-                      <div className="summary-subsection">
-                        <h4>🔗 Related Topics</h4>
-                        <div className="related-topics">
-                          {selectedTopic.consolidatedSummary.relatedTopics.map((topic, index) => (
-                            <span key={index} className="related-topic-tag">{topic}</span>
+                        {/* Edit Related Topics */}
+                        <div className="summary-subsection">
+                          <h4>🔗 Related Topics</h4>
+                          {editedSummary.relatedTopics.map((topic, index) => (
+                            <div key={index} className="edit-item">
+                              <input
+                                type="text"
+                                value={topic}
+                                onChange={(e) => handleTopicChange(index, e.target.value)}
+                                className="edit-input"
+                                placeholder="Enter related topic"
+                              />
+                              <button onClick={() => handleRemoveTopic(index)} className="remove-btn">🗑️</button>
+                            </div>
                           ))}
+                          <button onClick={handleAddTopic} className="add-item-btn">+ Add Topic</button>
                         </div>
                       </div>
+                    ) : (
+                      /* View Mode */
+                      <>
+                        {/* Main Concepts */}
+                        {selectedTopic.consolidatedSummary.mainConcepts?.length > 0 && (
+                          <div className="summary-subsection">
+                            <h4>🎯 Main Concepts</h4>
+                            <ul className="concepts-list">
+                              {selectedTopic.consolidatedSummary.mainConcepts.map((concept, index) => (
+                                <li key={index}>{concept}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Detailed Points */}
+                        {selectedTopic.consolidatedSummary.detailedPoints?.length > 0 && (
+                          <div className="summary-subsection">
+                            <h4>📖 Detailed Explanation</h4>
+                            <ul className="detailed-points-list">
+                              {selectedTopic.consolidatedSummary.detailedPoints.map((point, index) => (
+                                <li key={index}>{point}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Related Topics */}
+                        {selectedTopic.consolidatedSummary.relatedTopics?.length > 0 && (
+                          <div className="summary-subsection">
+                            <h4>🔗 Related Topics</h4>
+                            <div className="related-topics">
+                              {selectedTopic.consolidatedSummary.relatedTopics.map((topic, index) => (
+                                <span key={index} className="related-topic-tag">{topic}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ) : (

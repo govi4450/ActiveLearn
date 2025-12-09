@@ -18,6 +18,7 @@ const achievementRoutes = require('./routes/achievements');
 const mindmapRoutes = require('./routes/mindmaps');
 const topicDocumentRoutes = require('./routes/topicDocuments');
 const libraryRoutes = require('./routes/library');
+const engagementRoutes = require('./routes/engagement');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -51,6 +52,7 @@ app.use('/api/achievements', achievementRoutes);
 app.use('/api/mindmaps', mindmapRoutes);
 app.use('/api/topic-documents', topicDocumentRoutes);
 app.use('/api/library', libraryRoutes);
+app.use('/api/engagement', engagementRoutes);
 
 // YouTube API endpoints
 app.get('/api/youtube/search', async (req, res) => {

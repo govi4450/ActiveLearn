@@ -8,6 +8,7 @@ import NotesList from '../../notes/components/NotesList';
 import AchievementsList from '../../achievements/components/AchievementsList';
 import PerformanceCharts from '../../charts/components/PerformanceCharts';
 import LearningLibrary from '../../library/components/LearningLibrary';
+import EngagementMonitor from '../../engagement/components/EngagementMonitor';
 
 function Dashboard({ currentUser, onLogout, onNavigateToVideos }) {
 	const [activeTab, setActiveTab] = useState('overview');
@@ -62,6 +63,12 @@ function Dashboard({ currentUser, onLogout, onNavigateToVideos }) {
 				>
 					🏆 Achievements
 				</button>
+				<button 
+					className={`tab-btn ${activeTab === 'engagement' ? 'active' : ''}`}
+					onClick={() => setActiveTab('engagement')}
+				>
+					📹 Engagement Feedback
+				</button>
 			</div>
 			
 			{/* Tab Content */}
@@ -111,6 +118,10 @@ function Dashboard({ currentUser, onLogout, onNavigateToVideos }) {
 
 			{activeTab === 'achievements' && (
 				<AchievementsList currentUser={currentUser} />
+			)}
+
+			{activeTab === 'engagement' && (
+				<EngagementMonitor currentUser={currentUser} currentVideo={selectedVideo} />
 			)}
 		</div>
 	);

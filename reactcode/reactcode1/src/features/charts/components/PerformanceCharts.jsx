@@ -15,7 +15,7 @@ function PerformanceCharts({ currentUser }) {
 	const fetchChartData = async () => {
 		try {
 			setLoading(true);
-			const response = await axios.get(`http://localhost:3000/api/dashboard/analytics/${currentUser}`);
+			const response = await axios.get(`/api/dashboard/analytics/${currentUser}`);
 			setChartData(response.data);
 		} catch (error) {
 			console.error('Error fetching chart data:', error);
